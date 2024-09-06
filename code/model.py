@@ -118,13 +118,14 @@ class LightGCN(BasicModel):
 
         # print("save_txt")
     def __dropout_x(self, x, keep_prob):
+        #indices,values,size
         size = x.size()
         index = x.indices().t()
         values = x.values()
         random_index = torch.rand(len(values)) + keep_prob
         random_index = random_index.int().bool()
         index = index[random_index]
-        values = values[random_index]/keep_prob
+        values = values[random_index]/keep_prob # # Scale the remaining values to account for dropout
         g = torch.sparse.FloatTensor(index.t(), values, size)
         return g
     
@@ -167,8 +168,8 @@ class LightGCN(BasicModel):
             embs.append(all_emb)
         embs = torch.stack(embs, dim=1)
         #print(embs.size())
-        light_out = torch.mean(embs, dim=1)
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
+        light_out = torch.mean(embs, dim=1) #平均完
+        users, items = torch.split(light_out, [self.num_users, self.num_items]) #再切分
         return users, items
     
     def getUsersRating(self, users):

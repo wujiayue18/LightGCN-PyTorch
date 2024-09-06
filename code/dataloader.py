@@ -186,6 +186,7 @@ class LastFM(BasicDataset):
         # print(self.UserItemNet[users, items])
         return np.array(self.UserItemNet[users, items]).astype('uint8').reshape((-1, ))
     
+    #所有用户交互过的物品列表
     def getUserPosItems(self, users):
         posItems = []
         for user in users:
@@ -245,7 +246,7 @@ class Loader(BasicDataset):
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     trainUniqueUsers.append(uid)
-                    trainUser.extend([uid] * len(items))
+                    trainUser.extend([uid] * len(items)) #用户重复len(items)次添加到trainuser列表中
                     trainItem.extend(items)
                     self.m_item = max(self.m_item, max(items))
                     self.n_user = max(self.n_user, uid)
@@ -280,10 +281,10 @@ class Loader(BasicDataset):
         # (users,items), bipartite graph
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
                                       shape=(self.n_user, self.m_item))
-        self.users_D = np.array(self.UserItemNet.sum(axis=1)).squeeze()
-        self.users_D[self.users_D == 0.] = 1
-        self.items_D = np.array(self.UserItemNet.sum(axis=0)).squeeze()
-        self.items_D[self.items_D == 0.] = 1.
+        self.users_D = np.array(self.UserItemNet.sum(axis=1)).squeeze() #[n_users,]
+        self.users_D[self.users_D == 0.] = 1 
+        self.items_D = np.array(self.UserItemNet.sum(axis=0)).squeeze() #[m_item,]
+        self.items_D[self.items_D == 0.] = 1. 
         # pre-calculate
         self._allPos = self.getUserPosItems(list(range(self.n_user)))
         self.__testDict = self.__build_test()
@@ -347,13 +348,13 @@ class Loader(BasicDataset):
                 adj_mat = adj_mat.todok()
                 # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
                 
-                rowsum = np.array(adj_mat.sum(axis=1))
-                d_inv = np.power(rowsum, -0.5).flatten()
+                rowsum = np.array(adj_mat.sum(axis=1)) #每个节点的度
+                d_inv = np.power(rowsum, -0.5).flatten() #开平方的倒数
                 d_inv[np.isinf(d_inv)] = 0.
                 d_mat = sp.diags(d_inv)
                 
-                norm_adj = d_mat.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat)
+                norm_adj = d_mat.dot(adj_mat) #行乘以，进行归一化
+                norm_adj = norm_adj.dot(d_mat) #列乘以，进行归一化
                 norm_adj = norm_adj.tocsr()
                 end = time()
                 print(f"costing {end-s}s, saved norm_mat...")
