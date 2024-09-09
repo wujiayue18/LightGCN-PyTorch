@@ -49,6 +49,7 @@ config['bigdata'] = False
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
+
 CORES = multiprocessing.cpu_count() // 2
 seed = args.seed
 
@@ -77,6 +78,7 @@ simplefilter(action="ignore", category=FutureWarning)
 def cprint(words : str):
     print(f"\033[0;30;43m{words}\033[0m")
 
+cprint(device)
 logo = r"""
 ██╗      ██████╗ ███╗   ██╗
 ██║     ██╔════╝ ████╗  ██║
