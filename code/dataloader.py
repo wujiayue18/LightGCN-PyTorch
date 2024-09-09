@@ -288,6 +288,7 @@ class Loader(BasicDataset):
         # pre-calculate
         self._allPos = self.getUserPosItems(list(range(self.n_user)))
         self.__testDict = self.__build_test()
+        self.item_popularity = self._item_cal_popularity()
         print(f"{world.dataset} is ready to go")
 
     @property
@@ -400,6 +401,10 @@ class Loader(BasicDataset):
         for user in users:
             posItems.append(self.UserItemNet[user].nonzero()[1])
         return posItems
+
+    def _item_cal_popularity(self):
+        item_popularity = np.array(np.sum(self.UserItemNet, axis=0)).astype('uint8')
+        return item_popularity.reshape((-1,))
 
     # def getUserNegItems(self, users):
     #     negItems = []
