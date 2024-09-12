@@ -12,7 +12,7 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
-
+from steers import SteerNet
 
 class BasicModel(nn.Module):    
     def __init__(self):
@@ -33,6 +33,8 @@ class PairWiseModel(BasicModel):
         Return:
             (log-loss, l2-loss)
         """
+        raise NotImplementedError
+    def infoNCE_loss(self, anchor, pos, neg):
         raise NotImplementedError
     
 class PureMF(BasicModel):
@@ -88,6 +90,7 @@ class LightGCN(BasicModel):
         self.config = config
         self.dataset : dataloader.BasicDataset = dataset
         self.__init_weight()
+        
 
     def __init_weight(self):
         self.num_users  = self.dataset.n_users
@@ -138,12 +141,19 @@ class LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
-    def computer(self):
+    def computer(self,inner_emb):
         """
         propagate methods for lightGCN
         """       
-        users_emb = self.embedding_user.weight
-        items_emb = self.embedding_item.weight
+        if self.config['continue_train'] == 0:
+            users_emb = self.embedding_user.weight
+            items_emb = self.embedding_item.weight
+        elif self.config['which'] == 'user':
+            users_emb = inner_emb
+            items_emb = self.embedding_item.weight
+        elif self.config['which'] == 'item':
+            users_emb = self.embedding_user.weight
+            items_emb = inner_emb
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
         embs = [all_emb]
@@ -203,6 +213,31 @@ class LightGCN(BasicModel):
         loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
         
         return loss, reg_loss
+
+    def infoNCE_loss(self, anchor, pos, neg):
+        #anchor_emb size [batch_size, dim]
+        all_users, all_items = self.computer()
+        anchor_emb = all_items[anchor] # [batch_size, dim]
+        pos_emb = all_items[pos]  # [batch_size, dim]
+        neg_emb = all_items[neg]  # [batch_size, num_negatives, dim]
+         # 正样本相似度 (dot product)
+        anchor_positive_sim = torch.sum(torch.mul(anchor_emb, pos_emb), dim=1)  # [batch_size]
+        anchor_positive_sim /= self.config['temperature']  # Temperature scaling
+
+        # 负样本相似度 (use matrix multiplication for batch dot product)
+        anchor_negative_sim = torch.bmm(neg_emb, anchor_emb.unsqueeze(2)).squeeze()  # [batch_size, num_negatives]
+        anchor_negative_sim /= self.config['temperature']  # Temperature scaling
+
+        # Concatenate positive and negative similarities
+        logits = torch.cat([anchor_positive_sim.unsqueeze(1), anchor_negative_sim], dim=1)  # [batch_size, 1 + num_negatives]
+
+        # Labels: Positive sample is at index 0
+        labels = torch.zeros(logits.size(0), dtype=torch.long).to(logits.device)
+
+        # Cross entropy loss
+        loss = torch.nn.functional.cross_entropy(logits, labels)
+
+        return loss
        
     def forward(self, users, items):
         # compute embedding
@@ -214,3 +249,33 @@ class LightGCN(BasicModel):
         inner_pro = torch.mul(users_emb, items_emb)
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
+
+class Steer_model(BasicModel):
+    def __init__(self,model,config):
+        super(Steer_model,self).__init__()
+        self.model = model
+        self.dataset = model.dataset
+        self.num_users = self.dataset.n_users
+        self.num_items = self.dataset.m_items
+        self.config = config
+        for _params in self.model.parameters():
+            _params.requires_grad = False
+
+        self.steer = SteerNet(config,self.num_users,self.num_items)
+
+    #TODO：forward输入和输出，
+    def forward(self,steer_values,state):
+        self.steer.set_value(steer_values)
+        inner_state = self.steer(state)
+        return self.model.compute(inner_state)
+
+
+    def parameters(self):
+        return self.steer.parameters()
+    
+    def state_dict(self):
+        return self.steer.state_dict()
+    
+    def load_state_dict(self, state_dict):
+        self.steer.load_state_dict(state_dict)
+    

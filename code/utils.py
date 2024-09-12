@@ -50,6 +50,24 @@ class BPRLoss:
 
         return loss.cpu().item()
 
+#TODO:infoNCE类
+class InfoNCELoss(nn.Module):
+    def __init__(self,
+                steer : PairWiseModel,
+                config : dict):
+        self.model = steer
+        self.lr = config['lr']
+        self.opt = optim.Adam(steer.parameters(), lr=self.lr)
+
+    def stageOne(self, anchor, pos, neg):
+        loss = self.model.infoNCE_loss(anchor, pos, neg)
+
+        self.opt.zero_grad()
+        loss.backward()
+        self.opt.step()
+
+        return loss.cpu().item()
+
 
 def UniformSample_original(dataset, neg_ratio = 1):
     dataset : BasicDataset

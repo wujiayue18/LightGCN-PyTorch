@@ -46,6 +46,16 @@ config['decay'] = args.decay
 config['pretrain'] = args.pretrain
 config['A_split'] = False
 config['bigdata'] = False
+config['adapter_class'] = args.adapter_class
+config['num_steers'] = args.num_steers
+config['rank'] = args.rank
+config['epsilon'] = args.epsilon
+config['init_var'] = args.init_var
+config['which'] = args.which
+config['high_threshold'] = args.high_threshold
+config['low_threshold'] = args.low_threshold
+config['continue_train'] = args.continue_train
+config['temperature'] = args.temperature
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")

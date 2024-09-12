@@ -227,6 +227,9 @@ class Loader(BasicDataset):
         cprint(f'loading [{path}]')
         self.split = config['A_split']
         self.folds = config['A_n_fold']
+        self.high_threshold = config['high_threshold']
+        self.low_threshold = config['low_threshold']
+
         self.mode_dict = {'train': 0, "test": 1}
         self.mode = self.mode_dict['train']
         self.n_user = 0
@@ -289,6 +292,8 @@ class Loader(BasicDataset):
         self._allPos = self.getUserPosItems(list(range(self.n_user)))
         self.__testDict = self.__build_test()
         self.item_popularity = self._item_cal_popularity()
+        self.highpo_samples, self.lowpo_samples = self._popularity_samples()
+        self.user_popularity = self._user_cal_popularity()
         print(f"{world.dataset} is ready to go")
 
     @property
@@ -403,8 +408,24 @@ class Loader(BasicDataset):
         return posItems
 
     def _item_cal_popularity(self):
-        item_popularity = np.array(np.sum(self.UserItemNet, axis=0)).astype('uint8')
+        item_popularity = np.array(np.sum(self.UserItemNet, axis=0))
         return item_popularity.reshape((-1,))
+
+    def _popularity_samples(self):
+        highpo_samples = np.where(self.item_popularity > self.high_threshold)[0]
+        lowpo_samples = np.where(self.item_popularity <= self.low_threshold)[0]
+        return highpo_samples, lowpo_samples
+
+    def _user_cal_popularity(self):
+        rows = np.arange(self.n_users)[:,None]
+        rows = np.repeat(rows,len(self.highpo_samples),axis=1).flatten()
+        cols = np.tile(self.highpo_samples, self.n_users) 
+        data = np.ones_like(cols)
+        user_pop = csr_matrix((data, (rows, cols)), shape=(self.n_users, self.m_items))
+        user_pop = user_pop.multiply(self.UserItemNet)
+        user_popularity = np.array(np.sum(user_pop, axis=1))
+        return user_popularity.reshape((-1,))
+
 
     # def getUserNegItems(self, users):
     #     negItems = []
