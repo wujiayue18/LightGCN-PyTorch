@@ -52,5 +52,6 @@ def parse_args():
     parser.add_argument("--high_threshold", type=int, default='25')
     parser.add_argument("--low_threshold", type=int, default='25')
     parser.add_argument("--continue_train", type=int, default='0')
-    parser.add_argument("--temperature", type=int, default='0.07')
+    parser.add_argument("--temperature", type=float, default='0.07')
+    parser.add_argument('--dummy_steer', type=int, default='1')
     return parser.parse_args()

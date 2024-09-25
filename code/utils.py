@@ -17,6 +17,7 @@ from model import PairWiseModel
 from sklearn.metrics import roc_auc_score
 import random
 import os
+from datetime import datetime
 try:
     from cppimport import imp_from_filepath
     from os.path import join, dirname
@@ -50,6 +51,28 @@ class BPRLoss:
 
         return loss.cpu().item()
 
+
+class BPR2Loss:
+    def __init__(self,
+                 Steer_rec_model : PairWiseModel,
+                 config : dict):
+        self.model = Steer_rec_model
+        self.weight_decay = config['decay']
+        self.lr = config['lr']
+        self.opt = optim.Adam(Steer_rec_model.parameters(), lr=self.lr)
+
+    def stageOne(self, users, pos, neg):
+        #看一下reg_loss,users,pos
+        loss, reg_loss = self.model.bpr_loss(users, pos, neg)
+        reg_loss = reg_loss*self.weight_decay
+        loss = loss + reg_loss
+
+        self.opt.zero_grad()
+        loss.backward()
+        self.opt.step()
+
+        return loss.cpu().item()
+    
 #TODO:infoNCE类
 class InfoNCELoss(nn.Module):
     def __init__(self,
@@ -128,7 +151,9 @@ def getFileName():
     if world.model_name == 'mf':
         file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
     elif world.model_name == 'lgn':
-        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}.pth.tar"
+        if world.config['continue-train'] == 1:
+            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue-train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):

@@ -294,6 +294,8 @@ class Loader(BasicDataset):
         self.item_popularity = self._item_cal_popularity()
         self.highpo_samples, self.lowpo_samples = self._popularity_samples()
         self.user_popularity = self._user_cal_popularity()
+        self.item_popularity_labels = self.item_popularity_label() #每一个item对应一个popularity的label
+
         print(f"{world.dataset} is ready to go")
 
     @property
@@ -426,6 +428,9 @@ class Loader(BasicDataset):
         user_popularity = np.array(np.sum(user_pop, axis=1))
         return user_popularity.reshape((-1,))
 
+    def item_popularity_label(self):
+        labels = np.where(np.isin(np.arange(self.m_item), self.highpo_samples), 1, np.where(np.isin(np.arange(self.m_item), self.lowpo_samples), -1, 0))
+        return labels
 
     # def getUserNegItems(self, users):
     #     negItems = []

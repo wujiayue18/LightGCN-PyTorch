@@ -251,7 +251,7 @@ class LightGCN(BasicModel):
         return gamma
 
 class Steer_model(BasicModel):
-    def __init__(self,model,config):
+    def __init__(self,model,config,steer_values):
         super(Steer_model,self).__init__()
         self.model = model
         self.dataset = model.dataset
@@ -260,13 +260,14 @@ class Steer_model(BasicModel):
         self.config = config
         for _params in self.model.parameters():
             _params.requires_grad = False
-
-        self.steer = SteerNet(config,self.num_users,self.num_items)
+        self.init_item_embedding = self.get_parameter_by_name('embedding_item.weight')
+        self.steer = SteerNet(config,self.num_users,self.num_items).to(world.device)
+        self.all_items_steers = self.get_item_steers(steer_values)
 
     #TODO：forward输入和输出，
-    def forward(self,steer_values,state):
+    def forward(self,steer_values, pos_item, neg_item):
         self.steer.set_value(steer_values)
-        inner_state = self.steer(state)
+        inner_state = self.steer(self.init_item_embedding)
         return self.model.compute(inner_state)
 
 
@@ -278,4 +279,47 @@ class Steer_model(BasicModel):
     
     def load_state_dict(self, state_dict):
         self.steer.load_state_dict(state_dict)
+
+    def get_parameter_by_name(self, name):
+    # 获取模型的状态字典
+        state_dict = self.model.state_dict()
+        
+        # 从字典中提取对应参数
+        if name in state_dict:
+            param = state_dict[name]
+            print(param.device)
+            return param
+        else:
+            raise ValueError(f"Parameter '{name}' not found in the model.")
+        
+    def get_item_steers(self,steer_values):
+        self.steer.set_value(steer_values)
+        all_items_steers = self.steer(self.init_item_embedding)
+        return all_items_steers
+    
+    def getEmbedding(self, users, pos_items, neg_items):
+        
+        all_users, all_items = self.model.computer(self.all_items_steers)
+        users_emb = all_users[users]
+        pos_emb = all_items[pos_items]
+        neg_emb = all_items[neg_items]
+        users_emb_ego = self.embedding_user(users)
+        pos_emb_ego = self.all_items_steers(pos_items)
+        neg_emb_ego = self.all_items_steers(neg_items)
+        return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
+    
+    def bpr_loss(self, users, pos, neg, steer_values):
+        (users_emb, pos_emb, neg_emb, 
+        userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long(), steer_values)
+        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
+                         posEmb0.norm(2).pow(2)  +
+                         negEmb0.norm(2).pow(2))/float(len(users))
+        pos_scores = torch.mul(users_emb, pos_emb)
+        pos_scores = torch.sum(pos_scores, dim=1)
+        neg_scores = torch.mul(users_emb, neg_emb)
+        neg_scores = torch.sum(neg_scores, dim=1)
+        
+        loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
+        
+        return loss, reg_loss
     
