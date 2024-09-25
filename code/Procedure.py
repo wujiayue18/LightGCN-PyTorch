@@ -76,7 +76,10 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
     u_batch_size = world.config['test_u_batch_size']
     dataset: utils.BasicDataset
     testDict: dict = dataset.testDict #dict: {user: [items]}
-    Recmodel: model.LightGCN
+    if world.config['continue_train']:
+        Recmodel: model.Steer_model
+    else:
+        Recmodel: model.LightGCN
     # eval mode with no dropout
     Recmodel = Recmodel.eval()
     max_K = max(world.topks)
@@ -103,7 +106,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
             batch_users_gpu = torch.Tensor(batch_users).long()
             batch_users_gpu = batch_users_gpu.to(world.device)
 
-            rating = Recmodel.getUsersRating(batch_users_gpu)
+            rating = Recmodel.rec_model.getUsersRating(batch_users_gpu)
             #rating = rating.cpu()
             exclude_index = []
             exclude_items = []

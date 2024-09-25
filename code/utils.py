@@ -58,15 +58,17 @@ class BPR2Loss:
                  config : dict):
         self.model = Steer_rec_model
         self.weight_decay = config['decay']
+        self.steer_decay = config['steer_decay']
         self.lr = config['lr']
         self.opt = optim.Adam(Steer_rec_model.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg):
         #看一下reg_loss,users,pos
-        loss, reg_loss = self.model.bpr_loss(users, pos, neg)
+        loss, reg_loss,reg_loss_steer = self.model.bpr_loss(users, pos, neg)
         reg_loss = reg_loss*self.weight_decay
-        loss = loss + reg_loss
-
+        reg_loss_steer = reg_loss_steer*self.steer_decay
+        loss = loss + reg_loss + reg_loss_steer
+        
         self.opt.zero_grad()
         loss.backward()
         self.opt.step()
@@ -151,8 +153,8 @@ def getFileName():
     if world.model_name == 'mf':
         file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
     elif world.model_name == 'lgn':
-        if world.config['continue-train'] == 1:
-            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue-train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        if world.config['continue_train'] == 1:
+            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
         file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 

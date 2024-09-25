@@ -57,6 +57,7 @@ config['low_threshold'] = args.low_threshold
 config['continue_train'] = args.continue_train
 config['temperature'] = args.temperature
 config['dummy_steer'] = args.dummy_steer
+config['steer_decay'] = args.steer_decay
 
 
 GPU = torch.cuda.is_available()

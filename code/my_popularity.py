@@ -6,6 +6,7 @@ dataset = dataloader.Loader(path="../data/"+world.dataset)
 item_popularity = dataset.item_popularity
 import numpy as np
 import model
+import time
 import torch
 import register
 from sklearn.decomposition import PCA 
@@ -14,6 +15,10 @@ from sklearn.utils import shuffle
 from model import Steer_model
 import utils
 from register import dataset
+from os.path import join
+from utils import timer
+from world import cprint
+import Procedure
 
 def load_model(weight_file):
     Recmodel = register.MODELS[world.model_name](world.config, dataset)
@@ -91,8 +96,8 @@ def PCA_analyse(Recmodel,n_components,part):
     plt.show()
     plt.savefig(f"../imgs/popularity_low_{part}.png")
 
-def train_steer(dataset, Steer_rec_model, loss_class, epoch, config):
-    
+def train_steer(dataset, Steer_rec_model, loss_class, epoch, neg_k=1, w=None):
+    Steer_rec_model = Steer_rec_model
     Steer_rec_model.train()
     bpr: utils.BPR2Loss = loss_class
     with timer(name="Sample"):
@@ -130,6 +135,7 @@ def train_steer(dataset, Steer_rec_model, loss_class, epoch, config):
 
 
 if __name__ == '__main__':
+    utils.set_seed(world.seed)
     weight_file = './checkpoints/lgn-gowalla-3-64.pth.tar'
     n_components = 2
     part = 'all'
@@ -143,15 +149,38 @@ if __name__ == '__main__':
     if world.config['dummy_steer']:
         steer_values = torch.cat([steer_values, torch.ones_like(steer_values[:,0])[:,None]],1).to(world.device)
     Steer_rec_model = Steer_model(Recmodel,world.config,steer_values).to(world.device)
+    loss_class = utils.BPR2Loss(Steer_rec_model, world.config)
+    weight_file = utils.getFileName()
+    # if world.config['continue_train']:
+
+    if world.tensorboard:
+        w : SummaryWriter = SummaryWriter(
+                                        join(world.BOARD_PATH, time.strftime("%m-%d-%Hh%Mm%Ss-") + "-" + world.comment)
+                                        )
+    else:
+        w = None
+        world.cprint("not enable tensorflowboard")
     # print(Steer_rec_model)
     # for name,param in Steer_rec_model.named_parameters():
+    #     print(param.device)
     #     if param.requires_grad:
     #         print(name,'require grad')
     #     else:
     #         print(name,'not require grad')
-    # loss_class = utils.BPRLoss(Steer_rec_model, world.config)
-    # epoch = 100
+    
+    Neg_k = 1
     # train_steer(dataset, Steer_rec_model, loss_class, epoch, world.config)
-
+    try:
+        for epoch in range(world.TRAIN_epochs):
+            start = time.time()
+            if epoch %10 == 0:
+                cprint("[TEST]")
+                Procedure.Test(dataset, Steer_rec_model, epoch, w, world.config['multicore'])
+            output_information = train_steer(dataset, Steer_rec_model, loss_class, epoch, neg_k=Neg_k,w=w)
+            print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] {output_information}')
+            torch.save(Steer_rec_model.state_dict(), weight_file)
+    finally:
+        if world.tensorboard:
+            w.close()
 
 

@@ -19,13 +19,15 @@ Recmodel = Recmodel.to(world.device)
 bpr = utils.BPRLoss(Recmodel, world.config)
 
 weight_file = utils.getFileName()
-print(f"load and save to {weight_file}")
+weight_file_r = './checkpoints/lgn-gowalla-3-64.pth.tar'
+print(f"load from {weight_file_r}")
+print(f"save to {weight_file}")
 if world.LOAD:
     try:
-        Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
-        world.cprint(f"loaded model weights from {weight_file}")
+        Recmodel.load_state_dict(torch.load(weight_file_r,map_location=torch.device('cpu')))
+        world.cprint(f"loaded model weights from {weight_file_r}")
     except FileNotFoundError:
-        print(f"{weight_file} not exists, start from beginning")
+        print(f"{weight_file_r} not exists, start from beginning")
 Neg_k = 1
 
 # init tensorboard
