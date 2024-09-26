@@ -21,6 +21,7 @@ CODE_PATH = join(ROOT_PATH, 'code')
 DATA_PATH = join(ROOT_PATH, 'data')
 BOARD_PATH = join(CODE_PATH, 'runs')
 FILE_PATH = join(CODE_PATH, 'checkpoints')
+LOG_PATH = join(CODE_PATH, 'logs')
 import sys
 sys.path.append(join(CODE_PATH, 'sources'))
 
@@ -54,10 +55,12 @@ config['init_var'] = args.init_var
 config['which'] = args.which
 config['high_threshold'] = args.high_threshold
 config['low_threshold'] = args.low_threshold
-config['continue_train'] = args.continue_train
+config['steer_train'] = args.steer_train
 config['temperature'] = args.temperature
 config['dummy_steer'] = args.dummy_steer
 config['steer_decay'] = args.steer_decay
+config['emb_ans_pos'] = args.emb_ans_pos
+config['n_components'] = args.n_components
 
 
 GPU = torch.cuda.is_available()

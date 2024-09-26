@@ -76,7 +76,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
     u_batch_size = world.config['test_u_batch_size']
     dataset: utils.BasicDataset
     testDict: dict = dataset.testDict #dict: {user: [items]}
-    if world.config['continue_train']:
+    if world.config['steer_train']:
         Recmodel: model.Steer_model
     else:
         Recmodel: model.LightGCN
@@ -105,8 +105,10 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
             groundTrue = [testDict[u] for u in batch_users]
             batch_users_gpu = torch.Tensor(batch_users).long()
             batch_users_gpu = batch_users_gpu.to(world.device)
-
-            rating = Recmodel.rec_model.getUsersRating(batch_users_gpu)
+            if world.config['steer_train']:
+                rating = Recmodel.rec_model.getUsersRating(batch_users_gpu)
+            else:
+                rating = Recmodel.getUsersRating(batch_users_gpu)
             #rating = rating.cpu()
             exclude_index = []
             exclude_items = []

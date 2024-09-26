@@ -12,7 +12,6 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
-from steers import SteerNet
 
 class BasicModel(nn.Module):    
     def __init__(self):
@@ -146,7 +145,7 @@ class LightGCN(BasicModel):
         propagate methods for lightGCN
         """       
 
-        if inner_emb is None or self.config['continue_train'] == 0:
+        if inner_emb is None or self.config['steer_train'] == 0:
             users_emb = self.embedding_user.weight
             items_emb = self.embedding_item.weight
         elif self.config['which'] == 'user':
@@ -215,30 +214,30 @@ class LightGCN(BasicModel):
         
         return loss, reg_loss
 
-    def infoNCE_loss(self, anchor, pos, neg):
-        #anchor_emb size [batch_size, dim]
-        all_users, all_items = self.computer()
-        anchor_emb = all_items[anchor] # [batch_size, dim]
-        pos_emb = all_items[pos]  # [batch_size, dim]
-        neg_emb = all_items[neg]  # [batch_size, num_negatives, dim]
-         # 正样本相似度 (dot product)
-        anchor_positive_sim = torch.sum(torch.mul(anchor_emb, pos_emb), dim=1)  # [batch_size]
-        anchor_positive_sim /= self.config['temperature']  # Temperature scaling
+    # def infoNCE_loss(self, anchor, pos, neg):
+    #     #anchor_emb size [batch_size, dim]
+    #     all_users, all_items = self.computer()
+    #     anchor_emb = all_items[anchor] # [batch_size, dim]
+    #     pos_emb = all_items[pos]  # [batch_size, dim]
+    #     neg_emb = all_items[neg]  # [batch_size, num_negatives, dim]
+    #      # 正样本相似度 (dot product)
+    #     anchor_positive_sim = torch.sum(torch.mul(anchor_emb, pos_emb), dim=1)  # [batch_size]
+    #     anchor_positive_sim /= self.config['temperature']  # Temperature scaling
 
-        # 负样本相似度 (use matrix multiplication for batch dot product)
-        anchor_negative_sim = torch.bmm(neg_emb, anchor_emb.unsqueeze(2)).squeeze()  # [batch_size, num_negatives]
-        anchor_negative_sim /= self.config['temperature']  # Temperature scaling
+    #     # 负样本相似度 (use matrix multiplication for batch dot product)
+    #     anchor_negative_sim = torch.bmm(neg_emb, anchor_emb.unsqueeze(2)).squeeze()  # [batch_size, num_negatives]
+    #     anchor_negative_sim /= self.config['temperature']  # Temperature scaling
 
-        # Concatenate positive and negative similarities
-        logits = torch.cat([anchor_positive_sim.unsqueeze(1), anchor_negative_sim], dim=1)  # [batch_size, 1 + num_negatives]
+    #     # Concatenate positive and negative similarities
+    #     logits = torch.cat([anchor_positive_sim.unsqueeze(1), anchor_negative_sim], dim=1)  # [batch_size, 1 + num_negatives]
 
-        # Labels: Positive sample is at index 0
-        labels = torch.zeros(logits.size(0), dtype=torch.long).to(logits.device)
+    #     # Labels: Positive sample is at index 0
+    #     labels = torch.zeros(logits.size(0), dtype=torch.long).to(logits.device)
 
-        # Cross entropy loss
-        loss = torch.nn.functional.cross_entropy(logits, labels)
+    #     # Cross entropy loss
+    #     loss = torch.nn.functional.cross_entropy(logits, labels)
 
-        return loss
+    #     return loss
        
     def forward(self, users, items):
         # compute embedding
@@ -251,11 +250,101 @@ class LightGCN(BasicModel):
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
 
+
+class SteerNet(nn.Module):
+    def __init__(self,config, num_users, num_items):
+        super(SteerNet, self).__init__()
+        assert config['rank'] > 0
+        self.adapter_class = config['adapter_class']
+        self.epsilon = config['epsilon']
+        self.which = config['which'] #user或者是item
+        self.rank = config['rank']
+        self.latent_dim = config['latent_dim_rec']
+        self.num_steers = config['num_steers']
+        self.init_var = config['init_var']
+        self.num_users = num_users
+        self.num_items = num_items
+        self.steer_values = torch.zeros(self.num_steers)
+        if self.which == 'user':
+            self.vocab_size = num_users 
+        else:
+            self.vocab_size = num_items
+        if self.adapter_class == 'multiply':
+            self.projector1 = nn.Parameter(torch.randn(
+                self.num_steers, self.latent_dim, self.rank  
+            ) * self.init_var)
+            self.projector2 = nn.Parameter(torch.randn(
+                self.num_steers, self.latent_dim, self.rank  
+            ) * self.init_var)
+        elif self.adapter_class == 'add':
+            self.add_vec = nn.Parameter(torch.randn(
+                self.num_steers, self.latent_dim
+            ))
+        else:
+            raise NotImplementedError
+
+    def set_value(self, steer_values):
+        self.steer_values = steer_values
+
+    def forward(self, state):
+        #[batch, latent_dim]
+        if self.steer_values.abs().sum() == 0:
+            return state.matmul(
+                self.lm_head.weight.detach().transpose(0, 1))
+        # if self.adapter_class == "multiply":
+        #     delta = state[:, None,None,:].matmul(self.projector1[None])
+        #     delta = delta * self.steer_values[:, :, None, None]
+        #     delta = delta.matmul(
+        #         self.projector2.transpose(1, 2)[None]).sum(1).squeeze()
+        #     projected_state = state + self.epsilon * delta
+        if self.adapter_class == "multiply":
+            a = state[:, None,None,:]
+            b = self.projector1[None]
+            delta = a.matmul(b)
+            delta = delta * self.steer_values[:, :, None, None]
+            delta = delta.matmul(
+                self.projector2.transpose(1, 2)[None]).sum(1).squeeze()
+            projected_state = state + self.epsilon * delta
+        elif self.adapter_class == "add":
+            add_values = self.steer_values.matmul(self.add_vec)
+            projected_state = state + self.epsilon * add_values
+
+        return projected_state
+    
+    def regularization_term(self):
+        if self.adapter_class == "multiply":
+            return self.projector1.pow(2).sum() + self.projector2.pow(2).sum()
+        elif self.adapter_class == "add":
+            return self.add_vec.pow(2).sum()
+        else:
+            raise NotImplementedError
+        
+    def state_dict(self):
+        if self.adapter_class == "multiply":
+            return {"projector1": self.projector1,
+                    "projector2": self.projector2}
+        elif self.adapter_class == "add":
+            return {"add_vec": self.add_vec}
+        else:
+            raise NotImplementedError
+        
+    def load_state_dict(self, state_dict):
+        if self.adapter_class == "multiply":
+            self.projector1.data = state_dict["projector1"]
+            self.projector2.data = state_dict["projector2"]
+        elif self.adapter_class == "add":
+            self.add_vec.data = state_dict["add_vec"]
+        else:
+            raise NotImplementedError
+
 class Steer_model(BasicModel):
-    def __init__(self,rec_model,config,steer_values):
+    def __init__(self,rec_model,
+                 config:dict, 
+                 dataset:BasicDataset,
+                 steer_values):
         super(Steer_model,self).__init__()
         self.rec_model = rec_model
-        self.dataset = self.rec_model.dataset
+        self.dataset = dataset
         self.num_users = self.dataset.n_users
         self.num_items = self.dataset.m_items
         self.config = config
@@ -264,14 +353,19 @@ class Steer_model(BasicModel):
         self.init_user_embedding = self.get_parameter_by_name('embedding_user.weight')
         self.init_item_embedding = self.get_parameter_by_name('embedding_item.weight')
         self.steer = SteerNet(config,self.num_users,self.num_items).to(world.device)
-        # self.all_items_steers = self.get_item_steers(steer_values)
         self.steer_values = steer_values
-
-    
-    def forward(self,steer_values, pos_item, neg_item):
         self.steer.set_value(steer_values)
+
+    def forward(self, users, items):
         inner_state = self.steer(self.init_item_embedding)
-        return self.rec_model.compute(inner_state)
+        all_users, all_items = self.computer(inner_state)
+        # print('forward')
+        #all_users, all_items = self.computer()
+        users_emb = all_users[users]
+        items_emb = all_items[items]
+        inner_pro = torch.mul(users_emb, items_emb)
+        gamma     = torch.sum(inner_pro, dim=1)
+        return gamma
 
 
     def parameters(self):
@@ -295,13 +389,9 @@ class Steer_model(BasicModel):
         else:
             raise ValueError(f"Parameter '{name}' not found in the rec_model.")
         
-    def get_item_steers(self,steer_values):
-        self.steer.set_value(steer_values)
-        all_items_steers = self.steer(self.init_item_embedding)
-        return all_items_steers
     
     def getEmbedding(self, users, pos_items, neg_items):
-        self.all_items_steers = self.get_item_steers(self.steer_values)
+        self.all_items_steers = self.steer(self.init_item_embedding)
         all_users, all_items = self.rec_model.computer(self.all_items_steers)
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]

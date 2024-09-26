@@ -18,16 +18,20 @@ from sklearn.metrics import roc_auc_score
 import random
 import os
 from datetime import datetime
-try:
-    from cppimport import imp_from_filepath
-    from os.path import join, dirname
-    path = join(dirname(__file__), "sources/sampling.cpp")
-    sampling = imp_from_filepath(path)
-    sampling.seed(world.seed)
-    sample_ext = True
-except:
-    world.cprint("Cpp extension not loaded")
-    sample_ext = False
+import register
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA 
+from register import dataset
+# try:
+#     from cppimport import imp_from_filepath
+#     from os.path import join, dirname
+#     path = join(dirname(__file__), "sources/sampling.cpp")
+#     sampling = imp_from_filepath(path)
+#     sampling.seed(world.seed)
+#     sample_ext = True
+# except:
+#     world.cprint("Cpp extension not loaded")
+#     sample_ext = False
 
 
 class BPRLoss:
@@ -75,34 +79,34 @@ class BPR2Loss:
 
         return loss.cpu().item()
     
-#TODO:infoNCE类
-class InfoNCELoss(nn.Module):
-    def __init__(self,
-                steer : PairWiseModel,
-                config : dict):
-        self.model = steer
-        self.lr = config['lr']
-        self.opt = optim.Adam(steer.parameters(), lr=self.lr)
+# #TODO:infoNCE类
+# class InfoNCELoss(nn.Module):
+#     def __init__(self,
+#                 steer : PairWiseModel,
+#                 config : dict):
+#         self.model = steer
+#         self.lr = config['lr']
+#         self.opt = optim.Adam(steer.parameters(), lr=self.lr)
 
-    def stageOne(self, anchor, pos, neg):
-        loss = self.model.infoNCE_loss(anchor, pos, neg)
+#     def stageOne(self, anchor, pos, neg):
+#         loss = self.model.infoNCE_loss(anchor, pos, neg)
 
-        self.opt.zero_grad()
-        loss.backward()
-        self.opt.step()
+#         self.opt.zero_grad()
+#         loss.backward()
+#         self.opt.step()
 
-        return loss.cpu().item()
+#         return loss.cpu().item()
 
 
 def UniformSample_original(dataset, neg_ratio = 1):
     dataset : BasicDataset
     allPos = dataset.allPos
     start = time()
-    if sample_ext:
-        S = sampling.sample_negative(dataset.n_users, dataset.m_items,
-                                     dataset.trainDataSize, allPos, neg_ratio)
-    else:
-        S = UniformSample_original_python(dataset)
+    # if sample_ext:
+    #     S = sampling.sample_negative(dataset.n_users, dataset.m_items,
+    #                                  dataset.trainDataSize, allPos, neg_ratio)
+    # else:
+    S = UniformSample_original_python(dataset)
     return S
 
 def UniformSample_original_python(dataset):
@@ -151,11 +155,13 @@ def set_seed(seed):
 
 def getFileName():
     if world.model_name == 'mf':
-        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}.pth.tar"
+        if world.config['steer_train'] == 1:
+            file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     elif world.model_name == 'lgn':
-        if world.config['continue_train'] == 1:
-            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
-        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        if world.config['steer_train'] == 1:
+            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):
@@ -192,6 +198,53 @@ def shuffle(*arrays, **kwargs):
     else:
         return result
 
+def load_model(weight_file):
+    Recmodel = register.MODELS[world.model_name](world.config, dataset)
+    Recmodel = Recmodel.to(world.device)
+    
+    world.cprint(f"loaded model weights from {weight_file}")
+    Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
+    return Recmodel
+
+
+def plot_item_popularity(dataset):
+    plt.figure()
+    plt.hist(dataset.item_popularity, bins=100)
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/plot_item.png")
+    print(dataset.item_popularity.shape)
+
+def plot_user_popularity(dataset):
+    plt.figure()
+    print(len(dataset.highpo_samples))
+    print(len(dataset.lowpo_samples))
+    print(dataset.user_popularity.shape)
+    plt.hist(dataset.user_popularity, bins=100)
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/plot_user.png")
+
+def PCA_analyse(Recmodel):
+    Recmodel.eval()
+    with torch.no_grad():
+        if world.config['emb_ans_pos'] == 'after':
+            users_ebm, item_emb = Recmodel.computer()
+        else:
+            users_ebm = Recmodel.embedding_user.weight
+            item_emb = Recmodel.embedding_item.weight
+        # item_emb = Recmodel.embedding_item.weight
+        item_emb_high = item_emb[Recmodel.dataset.highpo_samples]
+        item_emb_low = item_emb[Recmodel.dataset.lowpo_samples]
+    pca = PCA(n_components=world.config['n_components'])
+    item_emb_high_pca = pca.fit_transform(item_emb_high.cpu().numpy())
+    item_emb_low_pca = pca.fit_transform(item_emb_low.cpu().numpy())
+    plt.figure()
+    plt.scatter(item_emb_high_pca[:,0],item_emb_high_pca[:,1],c='r',label='high popularity')
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/popularity_high_{world.config['emb_ans_pos']}.png")
+    plt.figure()
+    plt.scatter(item_emb_low_pca[:,0],item_emb_low_pca[:,1],c='b',label='low popularity')
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/popularity_low_{world.config['emb_ans_pos']}.png")
 
 class timer:
     """

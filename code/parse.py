@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('--multicore', type=int, default=0, help='whether we use multiprocessing or not in test')
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
-    parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
+    parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn, lgn+steer]')
     parser.add_argument('--adapter_class', type=str, default='multiply', help='adapter class, support [multiply, add]')
     parser.add_argument('--num_steers', type=int, default=2, help='number of steers')
     parser.add_argument('--rank', type=int, default=10)
@@ -51,8 +51,11 @@ def parse_args():
     parser.add_argument("--which", type=str, default='item', help='[user, item]')
     parser.add_argument("--high_threshold", type=int, default=25)
     parser.add_argument("--low_threshold", type=int, default=25)
-    parser.add_argument("--continue_train", type=int, default=0)
+    parser.add_argument("--steer_train", type=int, default=0)
     parser.add_argument("--temperature", type=float, default=0.07)
     parser.add_argument('--dummy_steer', type=int, default=1)
     parser.add_argument('--steer_decay', type=float, default=1e-1)
+    parser.add_argument('--emb_ans_pos', type=str, default='after', help='[before, after]')
+    parser.add_argument('--n_components', type=int, default=2) #PCA降维
+    
     return parser.parse_args()

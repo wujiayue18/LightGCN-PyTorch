@@ -20,40 +20,10 @@ from utils import timer
 from world import cprint
 import Procedure
 
-def load_model(weight_file):
-    Recmodel = register.MODELS[world.model_name](world.config, dataset)
-    Recmodel = Recmodel.to(world.device)
-    
-    world.cprint(f"loaded model weights from {weight_file}")
-    Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
-    return Recmodel
 
-def get_parameter_by_name(model, name):
-    # 获取模型的状态字典
-    state_dict = model.state_dict()
-    
-    # 从字典中提取对应参数
-    if name in state_dict:
-        param = state_dict[name]
-        return param
-    else:
-        raise ValueError(f"Parameter '{name}' not found in the model.")
 
-def plot_item_popularity(Recmodel):
-    plt.figure()
-    plt.hist(Recmodel.dataset.item_popularity, bins=100)
-    plt.show()
-    plt.savefig("../imgs/plot_item.png")
-    print(Recmodel.dataset.item_popularity.shape)
 
-def plot_user_popularity(Recmodel):
-    plt.figure()
-    print(len(Recmodel.dataset.highpo_samples))
-    print(len(Recmodel.dataset.lowpo_samples))
-    print(Recmodel.dataset.user_popularity.shape)
-    plt.hist(Recmodel.dataset.user_popularity, bins=100)
-    plt.show()
-    plt.savefig("../imgs/plot_user.png")
+
 
 
  #TODO：采样进行均衡   
@@ -72,29 +42,7 @@ def plot_user_popularity(Recmodel):
     # return highpo_samples, lowpo_samples
 
 
-def PCA_analyse(Recmodel,n_components,part):
-    Recmodel.eval()
-    with torch.no_grad():
-        if part == 'all':
-            users_ebm, item_emb = Recmodel.computer()
-        else:
-            users_ebm = Recmodel.embedding_user.weight
-            item_emb = Recmodel.embedding_item.weight
-        # item_emb = Recmodel.embedding_item.weight
-        item_emb_high = item_emb[Recmodel.dataset.highpo_samples]
-        item_emb_low = item_emb[Recmodel.dataset.lowpo_samples]
-    n_components = 2
-    pca = PCA(n_components=n_components)
-    item_emb_high_pca = pca.fit_transform(item_emb_high.cpu().numpy())
-    item_emb_low_pca = pca.fit_transform(item_emb_low.cpu().numpy())
-    plt.figure()
-    plt.scatter(item_emb_high_pca[:,0],item_emb_high_pca[:,1],c='r',label='high popularity')
-    plt.show()
-    plt.savefig(f"../imgs/popularity_high_{part}.png")
-    plt.figure()
-    plt.scatter(item_emb_low_pca[:,0],item_emb_low_pca[:,1],c='b',label='low popularity')
-    plt.show()
-    plt.savefig(f"../imgs/popularity_low_{part}.png")
+
 
 def train_steer(dataset, Steer_rec_model, loss_class, epoch, neg_k=1, w=None):
     Steer_rec_model = Steer_rec_model
@@ -137,7 +85,7 @@ def train_steer(dataset, Steer_rec_model, loss_class, epoch, neg_k=1, w=None):
 if __name__ == '__main__':
     utils.set_seed(world.seed)
     weight_file = './checkpoints/lgn-gowalla-3-64.pth.tar'
-    n_components = 2
+
     part = 'all'
     Recmodel = load_model(weight_file)
     embedding_item = get_parameter_by_name(Recmodel, 'embedding_item.weight')
@@ -148,7 +96,7 @@ if __name__ == '__main__':
     steer_values = torch.Tensor(item_popularity_labels)[:,None]
     if world.config['dummy_steer']:
         steer_values = torch.cat([steer_values, torch.ones_like(steer_values[:,0])[:,None]],1).to(world.device)
-    Steer_rec_model = Steer_model(Recmodel,world.config,steer_values).to(world.device)
+    Steer_rec_model = Steer_model(Recmodel,world.config,world.dataset,steer_values).to(world.device)
     loss_class = utils.BPR2Loss(Steer_rec_model, world.config)
     weight_file = utils.getFileName()
     # if world.config['continue_train']:

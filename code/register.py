@@ -1,7 +1,6 @@
 import world
 import dataloader
 import model
-import utils
 from pprint import pprint
 
 if world.dataset in ['gowalla', 'yelp2018', 'amazon-book']:
@@ -22,5 +21,6 @@ print('===========end===================')
 
 MODELS = {
     'mf': model.PureMF,
-    'lgn': model.LightGCN
+    'lgn': model.LightGCN,
+    'lgn+steer': model.Steer_model
 }
