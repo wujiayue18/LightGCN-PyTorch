@@ -14,6 +14,9 @@ print(">>SEED:", world.seed)
 # ==============================
 import register
 from register import dataset
+from utils import plot_count_popularity_bar, plot_count_popularity
+print(dataset.n_user)
+print(dataset.m_item)
 
 Recmodel = register.MODELS[world.model_name](world.config, dataset)
 Recmodel = Recmodel.to(world.device)
@@ -25,25 +28,18 @@ rating_items = results['rating_items']
 rating_popularity = results['rating_popularity']
 rating_count = results['rating_count'].values()
 
-plt.figure()
-plt.scatter(rating_count, rating_popularity, alpha=0.5)  
-plt.title('Item Popularity vs Recommendation Count')
-plt.ylabel('Popularity')
-plt.xlabel('Recommendation Count')
-# 显示图形
-plt.show()
-plt.savefig(f"../imgs/{world.dataset}/plot_rating_items_popularity.png")
+
+plot_count_popularity(rating_popularity, rating_count, "rating")
 
 ground_truth_items = results['ground_truth_items']
 gt_popularity = results['gt_popularity']
 gt_count = results['gt_count'].values()
-plt.figure()
-plt.scatter(gt_count, gt_popularity, alpha=0.5)  
-plt.title('Item Popularity vs Recommendation Count')
-plt.ylabel('Popularity')
-plt.xlabel('Recommendation Count')
-# 显示图形
-plt.show()
-plt.savefig(f"../imgs/{world.dataset}/plot_gt_items_popularity.png")
+# print(sum(gt_count))
+# print(sum(rating_count))
+plot_count_popularity(gt_popularity, gt_count, "gt")
 
+#绘制柱状图
+plot_count_popularity_bar(gt_popularity, gt_count, "gt")
 
+#rating画图
+plot_count_popularity_bar(rating_popularity, rating_count, "rating")

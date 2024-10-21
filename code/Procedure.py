@@ -148,27 +148,34 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
         #popularity
         ground_truth_items_array = [item for sublist1 in groundTrue_list for sublist2 in sublist1 for item in sublist2]
         ground_truth_items = set(ground_truth_items_array)
-        gt_popularity = np.array([dataset.item_popularity[item] for item in ground_truth_items])
+        # gt_popularity = np.array([dataset.item_popularity[item] for item in ground_truth_items])
+        
         rating_items_array = [item for sublist1 in rating_list for sublist2 in sublist1 for item in sublist2]
+        rating_items_array = [t.item() for t in rating_items_array]
         rating_items = set(rating_items_array)
-        rating_popularity = np.array([dataset.item_popularity[item] for item in rating_items])
+        # rating_popularity = np.array([dataset.item_popularity[item] for item in rating_items])
         results['rating_items'] = rating_items
         results['ground_truth_items'] = ground_truth_items
-        results['gt_popularity'] = gt_popularity
-        results['rating_popularity'] = rating_popularity
-        results['rating_popularity_mean'] = sum(rating_popularity) / len(rating_popularity)
+        
+        results['rating_items_array'] = rating_items_array
         rating_count = Counter(rating_items_array)
         tuple_list_rating = list(rating_count.items())
         # 根据键的索引排序
         rating_count = sorted(tuple_list_rating, key=lambda x: x[0])
         # 将排序后的元组列表转换回字典
         rating_count = dict(rating_count)
+
         ground_truth_count = Counter(ground_truth_items_array)
         tuple_list_gt = list(ground_truth_count.items())
         gt_count = sorted(tuple_list_gt, key=lambda x: x[0])
-        tuple_list_gt = dict(gt_count)
+        gt_count = dict(gt_count)
+        gt_popularity = np.array([dataset.item_popularity[item] for item in gt_count.keys()])
+        rating_popularity = np.array([dataset.item_popularity[item] for item in rating_count.keys()])
         results['rating_count'] = rating_count
-        results['tuple_list_gt'] = tuple_list_gt
+        results['gt_count'] = gt_count
+        results['gt_popularity'] = gt_popularity
+        results['rating_popularity'] = rating_popularity
+        results['rating_popularity_mean'] = sum(rating_popularity) / len(rating_popularity)
         # results['auc'] = np.mean(auc_record)
         # if world.tensorboard:
         #     w.add_scalars(f'Test/Recall@{world.topks}',

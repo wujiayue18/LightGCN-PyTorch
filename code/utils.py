@@ -262,6 +262,48 @@ def PCA_analyse(Recmodel):
     plt.show()
     plt.savefig(f"../imgs/{world.dataset}/popularity_low_{world.config['emb_ans_pos']}.png")
 
+
+def plot_count_popularity_bar(popularity, counts, text):
+    plt.figure()
+    # 将 popularity 划分为多个区间 (0-200, 200-400, 400-600, ... )
+    bins = np.arange(0, 1600, 200)
+
+    # 使用 numpy 的 histogram 统计每个区间内的 count 总和
+    bin_indices = np.digitize(popularity, bins)
+    binned_counts = [0] * (len(bins) - 1)
+
+
+    # 对每个 bin 累加相应的 count
+    for i, count in enumerate(list(counts)):
+        if 0 < bin_indices[i] <= len(binned_counts):
+            binned_counts[bin_indices[i] - 1] += count
+
+    total_count = sum(binned_counts)
+    binned_probabilities = [count / total_count for count in binned_counts]
+
+    # 绘制柱状图
+    plt.bar(range(len(binned_counts)), binned_probabilities, width=0.8, align='center')
+
+    # 添加标签和标题
+    plt.xticks(range(len(binned_counts)), [f'{bins[i]}-{bins[i+1]}' for i in range(len(bins) - 1)], rotation=45)
+    plt.xlabel('Popularity Range')
+    plt.ylabel('Item Count')
+    plt.title('Item Counts in Popularity Ranges')
+
+    # 显示图表
+    plt.tight_layout()
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/plot_{text}_items_popularity_bar.png")
+
+def plot_count_popularity(popularity, counts, text):
+    plt.figure()
+    plt.scatter(counts, popularity, alpha=0.5)  
+    plt.title('Item Popularity vs Recommendation Count')
+    plt.ylabel('Popularity')
+    plt.xlabel('Recommendation Count')
+    # 显示图形
+    plt.show()
+    plt.savefig(f"../imgs/{world.dataset}/plot_{text}_items_popularity.png")
 class timer:
     """
     Time context manager for code block
