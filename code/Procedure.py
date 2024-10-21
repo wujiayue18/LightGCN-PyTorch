@@ -18,6 +18,7 @@ from tqdm import tqdm
 import model
 import multiprocessing
 from sklearn.metrics import roc_auc_score
+from collections import Counter
 
 
 CORES = multiprocessing.cpu_count() // 2
@@ -144,15 +145,40 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
         results['recall'] /= float(len(users))
         results['precision'] /= float(len(users))
         results['ndcg'] /= float(len(users))
+        #popularity
+        ground_truth_items_array = [item for sublist1 in groundTrue_list for sublist2 in sublist1 for item in sublist2]
+        ground_truth_items = set(ground_truth_items_array)
+        gt_popularity = np.array([dataset.item_popularity[item] for item in ground_truth_items])
+        rating_items_array = [item for sublist1 in rating_list for sublist2 in sublist1 for item in sublist2]
+        rating_items = set(rating_items_array)
+        rating_popularity = np.array([dataset.item_popularity[item] for item in rating_items])
+        results['rating_items'] = rating_items
+        results['ground_truth_items'] = ground_truth_items
+        results['gt_popularity'] = gt_popularity
+        results['rating_popularity'] = rating_popularity
+        results['rating_popularity_mean'] = sum(rating_popularity) / len(rating_popularity)
+        rating_count = Counter(rating_items_array)
+        tuple_list_rating = list(rating_count.items())
+        # 根据键的索引排序
+        rating_count = sorted(tuple_list_rating, key=lambda x: x[0])
+        # 将排序后的元组列表转换回字典
+        rating_count = dict(rating_count)
+        ground_truth_count = Counter(ground_truth_items_array)
+        tuple_list_gt = list(ground_truth_count.items())
+        gt_count = sorted(tuple_list_gt, key=lambda x: x[0])
+        tuple_list_gt = dict(gt_count)
+        results['rating_count'] = rating_count
+        results['tuple_list_gt'] = tuple_list_gt
         # results['auc'] = np.mean(auc_record)
-        if world.tensorboard:
-            w.add_scalars(f'Test/Recall@{world.topks}',
-                          {str(world.topks[i]): results['recall'][i] for i in range(len(world.topks))}, epoch)
-            w.add_scalars(f'Test/Precision@{world.topks}',
-                          {str(world.topks[i]): results['precision'][i] for i in range(len(world.topks))}, epoch)
-            w.add_scalars(f'Test/NDCG@{world.topks}',
-                          {str(world.topks[i]): results['ndcg'][i] for i in range(len(world.topks))}, epoch)
+        # if world.tensorboard:
+        #     w.add_scalars(f'Test/Recall@{world.topks}',
+        #                   {str(world.topks[i]): results['recall'][i] for i in range(len(world.topks))}, epoch)
+        #     w.add_scalars(f'Test/Precision@{world.topks}',
+        #                   {str(world.topks[i]): results['precision'][i] for i in range(len(world.topks))}, epoch)
+        #     w.add_scalars(f'Test/NDCG@{world.topks}',
+        #                   {str(world.topks[i]): results['ndcg'][i] for i in range(len(world.topks))}, epoch)
+        #     w.add_scalars(f'Test/Popularity', {'rating_popularity_mean': results['rating_popularity_mean']}, epoch)
         if multicore == 1:
             pool.close()
-        print(results)
+        # print(results)
         return results

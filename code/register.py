@@ -21,6 +21,5 @@ print('===========end===================')
 
 MODELS = {
     'mf': model.PureMF,
-    'lgn': model.LightGCN,
-    'lgn+steer': model.Steer_model
+    'lgn': model.LightGCN
 }

@@ -8,6 +8,7 @@ import time
 import Procedure
 from os.path import join
 from datetime import datetime
+from model import Steer_model
 # ==============================
 utils.set_seed(world.seed)
 print(">>SEED:", world.seed)
@@ -21,24 +22,31 @@ logging.basicConfig(filename=join(world.LOG_PATH, log_file),
                     level=logging.INFO,
                     format='%(asctime)s - %(name)s - [%(pathname)s:%(lineno)d] - %(levelname)s - %(message)s')
 logging.info(f"{world.config}")
-Recmodel = register.MODELS[world.model_name](world.config, dataset)
-Recmodel = Recmodel.to(world.device)
-if world.config['steer_train']:
-    bpr = utils.BPR2Loss(Recmodel, world.config)
-else:
-    bpr = utils.BPRLoss(Recmodel, world.config)
+#设置steer values
+
+Recmodel = register.MODELS[world.model_name](world.config, dataset).to(world.device)
 
 weight_file = utils.getFileName()
 weight_file_r = './checkpoints/lgn-gowalla-3-64.pth.tar'
 print(f"load from {weight_file_r}")
 print(f"save to {weight_file}")
-if world.LOAD or world.config['steer_train']:
+if world.LOAD or world.config['continue_train']:
     try:
         Recmodel.load_state_dict(torch.load(weight_file_r,map_location=torch.device('cpu')))
         world.cprint(f"loaded model weights from {weight_file_r}")
     except FileNotFoundError:
         print(f"{weight_file_r} not exists, start from beginning")
 Neg_k = 1
+
+if world.config['steer_train']:
+    item_popularity_labels = dataset.item_popularity_labels
+    steer_values = torch.Tensor(item_popularity_labels)[:,None]
+    if world.config['dummy_steer']:
+        steer_values = torch.cat([steer_values, torch.ones_like(steer_values[:,0])[:,None]],1).to(world.device)
+    Recmodel = Steer_model(Recmodel, world.config, dataset, steer_values)
+    bpr = utils.BPR2Loss(Recmodel, world.config)
+else:
+    bpr = utils.BPRLoss(Recmodel, world.config)
 
 # init tensorboard
 if world.tensorboard:

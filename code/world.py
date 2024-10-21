@@ -32,7 +32,7 @@ if not os.path.exists(FILE_PATH):
 
 config = {}
 all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book']
-all_models  = ['mf', 'lgn']
+all_models  = ['mf', 'lgn','lgn+steer']
 # config['batch_size'] = 4096
 config['bpr_batch_size'] = args.bpr_batch
 config['latent_dim_rec'] = args.recdim
@@ -61,6 +61,7 @@ config['dummy_steer'] = args.dummy_steer
 config['steer_decay'] = args.steer_decay
 config['emb_ans_pos'] = args.emb_ans_pos
 config['n_components'] = args.n_components
+config['continue_train'] = args.continue_train
 
 
 GPU = torch.cuda.is_available()

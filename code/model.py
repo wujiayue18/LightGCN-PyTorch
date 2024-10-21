@@ -140,20 +140,12 @@ class LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
-    def computer(self,inner_emb=None):
+    def computer(self):
         """
         propagate methods for lightGCN
         """       
-
-        if inner_emb is None or self.config['steer_train'] == 0:
-            users_emb = self.embedding_user.weight
-            items_emb = self.embedding_item.weight
-        elif self.config['which'] == 'user':
-            users_emb = inner_emb
-            items_emb = self.embedding_item.weight
-        elif self.config['which'] == 'item':
-            users_emb = self.embedding_user.weight
-            items_emb = inner_emb
+        users_emb = self.embedding_user.weight
+        items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
         embs = [all_emb]
@@ -176,21 +168,29 @@ class LightGCN(BasicModel):
             else:
                 all_emb = torch.sparse.mm(g_droped, all_emb)
             embs.append(all_emb)
+        #layer1
+        users_layer1,items_layer1 = torch.split(embs[1], [self.num_users, self.num_items])
+        #layer2
+        users_layer2,items_layer2 = torch.split(embs[2], [self.num_users, self.num_items])
+        #layer3
+        users_layer3,items_layer3 = torch.split(embs[3], [self.num_users, self.num_items])
+        
         embs = torch.stack(embs, dim=1)
         #print(embs.size())
         light_out = torch.mean(embs, dim=1) #平均完
         users, items = torch.split(light_out, [self.num_users, self.num_items]) #再切分
-        return users, items
+        
+        return users, items, users_layer1, items_layer1, users_layer2, items_layer2, users_layer3, items_layer3
     
     def getUsersRating(self, users):
-        all_users, all_items = self.computer()
+        all_users, all_items,_,_,_,_,_,_ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
-        all_users, all_items = self.computer()
+        all_users, all_items,_,_,_,_,_,_ = self.computer()
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
@@ -241,7 +241,7 @@ class LightGCN(BasicModel):
        
     def forward(self, users, items):
         # compute embedding
-        all_users, all_items = self.computer()
+        all_users, all_items,_,_,_,_,_,_ = self.computer()
         # print('forward')
         #all_users, all_items = self.computer()
         users_emb = all_users[users]
@@ -338,7 +338,8 @@ class SteerNet(nn.Module):
             raise NotImplementedError
 
 class Steer_model(BasicModel):
-    def __init__(self,rec_model,
+    def __init__(self,
+                 rec_model,
                  config:dict, 
                  dataset:BasicDataset,
                  steer_values):
@@ -348,8 +349,9 @@ class Steer_model(BasicModel):
         self.num_users = self.dataset.n_users
         self.num_items = self.dataset.m_items
         self.config = config
-        for _params in self.rec_model.parameters():
-            _params.requires_grad = False
+        if self.config['continue_train']:
+            for _params in self.rec_model.parameters():
+                _params.requires_grad = False
         self.init_user_embedding = self.get_parameter_by_name('embedding_user.weight')
         self.init_item_embedding = self.get_parameter_by_name('embedding_item.weight')
         self.steer = SteerNet(config,self.num_users,self.num_items).to(world.device)
@@ -357,8 +359,7 @@ class Steer_model(BasicModel):
         self.steer.set_value(steer_values)
 
     def forward(self, users, items):
-        inner_state = self.steer(self.init_item_embedding)
-        all_users, all_items = self.computer(inner_state)
+        all_users, all_items,_,_,_,_,_,_ = self.computer()
         # print('forward')
         #all_users, all_items = self.computer()
         users_emb = all_users[users]
@@ -367,12 +368,11 @@ class Steer_model(BasicModel):
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
 
-
-    def parameters(self):
-        return self.steer.parameters()
+    # def parameters(self):
+    #     return self.steer.parameters()
     
-    def state_dict(self):
-        return self.steer.state_dict()
+    # def state_dict(self):
+    #     return self.steer.state_dict()
     
     def load_state_dict(self, state_dict):
         self.steer.load_state_dict(state_dict)
@@ -391,14 +391,16 @@ class Steer_model(BasicModel):
         
     
     def getEmbedding(self, users, pos_items, neg_items):
-        self.all_items_steers = self.steer(self.init_item_embedding)
-        all_users, all_items = self.rec_model.computer(self.all_items_steers)
+        all_users, all_items,_,_,_,_,_,_ = self.rec_model.computer()
+        #加入steer
+        if self.config['steer_train']:
+            all_items = self.steer(all_items)
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
         users_emb_ego = self.init_user_embedding[users]
-        pos_emb_ego = self.all_items_steers[pos_items]
-        neg_emb_ego = self.all_items_steers[neg_items]
+        pos_emb_ego = self.init_item_embedding[pos_items]
+        neg_emb_ego = self.init_item_embedding[neg_items]
         return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
     
     def bpr_loss(self, users, pos, neg):

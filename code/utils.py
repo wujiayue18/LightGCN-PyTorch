@@ -155,13 +155,15 @@ def set_seed(seed):
 
 def getFileName():
     if world.model_name == 'mf':
-        if world.config['steer_train'] == 1:
+        if world.config['steer_train'] == 1 and world.config['continue_train'] == 0:
             file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
-        file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        else:
+            file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     elif world.model_name == 'lgn':
-        if world.config['steer_train'] == 1:
+        if world.config['steer_train'] == 1 and world.config['continue_train'] == 0:
             file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
-        file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        else:
+            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):
@@ -226,11 +228,25 @@ def plot_user_popularity(dataset):
 def PCA_analyse(Recmodel):
     Recmodel.eval()
     with torch.no_grad():
-        if world.config['emb_ans_pos'] == 'after':
-            users_ebm, item_emb = Recmodel.computer()
-        else:
+        if world.config['emb_ans_pos'] == 'before':
             users_ebm = Recmodel.embedding_user.weight
             item_emb = Recmodel.embedding_item.weight
+        else:
+            users_all, item_all, users_layer1, items_layer1, users_layer2, items_layer2, users_layer3, items_layer3 = Recmodel.computer()
+            if world.config['emb_ans_pos'] == 'layer_1':
+                users_ebm = users_layer1
+                item_emb = items_layer1
+            elif world.config['emb_ans_pos'] == 'layer_2':
+                users_ebm = users_layer2
+                item_emb = items_layer2
+            elif world.config['emb_ans_pos'] == 'layer_3':
+                users_ebm = users_layer3
+                item_emb = items_layer3
+            elif world.config['emb_ans_pos'] == 'all':
+                users_ebm = users_all
+                item_emb = item_all
+            else:
+                raise NotImplementedError
         # item_emb = Recmodel.embedding_item.weight
         item_emb_high = item_emb[Recmodel.dataset.highpo_samples]
         item_emb_low = item_emb[Recmodel.dataset.lowpo_samples]

@@ -1,0 +1,9 @@
+2024-09-26 15:28:51,096 - root - [main.py:23] - INFO - {'bpr_batch_size': 2048, 'latent_dim_rec': 64, 'lightGCN_n_layers': 3, 'dropout': 0, 'keep_prob': 0.6, 'A_n_fold': 100, 'test_u_batch_size': 100, 'multicore': 0, 'lr': 0.001, 'decay': 0.0001, 'pretrain': 0, 'A_split': False, 'bigdata': False, 'adapter_class': 'multiply', 'num_steers': 2, 'rank': 10, 'epsilon': 0.001, 'init_var': 0.01, 'which': 'item', 'high_threshold': 25, 'low_threshold': 25, 'steer_train': 0, 'temperature': 0.07, 'dummy_steer': 1, 'steer_decay': 0.1, 'emb_ans_pos': 'after', 'n_components': 2}
+2024-09-26 15:28:59,388 - tensorboardX.summary - [/root/miniconda3/lib/python3.8/site-packages/tensorboardX/summary.py:40] - INFO - Summary name Test/Recall@[20] is illegal; using Test/Recall__20_ instead.
+2024-09-26 15:28:59,391 - tensorboardX.summary - [/root/miniconda3/lib/python3.8/site-packages/tensorboardX/summary.py:40] - INFO - Summary name Test/Precision@[20] is illegal; using Test/Precision__20_ instead.
+2024-09-26 15:28:59,392 - tensorboardX.summary - [/root/miniconda3/lib/python3.8/site-packages/tensorboardX/summary.py:40] - INFO - Summary name Test/NDCG@[20] is illegal; using Test/NDCG__20_ instead.
+2024-09-26 15:28:59,395 - root - [main.py:58] - INFO - EPOCH[1/1000] {'precision': array([0.00018755]), 'recall': array([0.00053749]), 'ndcg': array([0.00040829])}
+2024-09-26 15:29:19,898 - root - [main.py:61] - INFO - EPOCH[1/1000] loss0.545-|Sample:8.70|
+2024-09-26 15:29:41,420 - root - [main.py:61] - INFO - EPOCH[2/1000] loss0.240-|Sample:9.82|
+2024-09-26 15:30:01,969 - root - [main.py:61] - INFO - EPOCH[3/1000] loss0.163-|Sample:8.81|
+2024-09-26 15:30:22,421 - root - [main.py:61] - INFO - EPOCH[4/1000] loss0.131-|Sample:8.69|
