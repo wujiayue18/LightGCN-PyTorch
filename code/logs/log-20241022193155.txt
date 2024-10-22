@@ -1,0 +1,50 @@
+2024-10-22 19:31:55,411 - root - [main.py:24] - INFO - {'bpr_batch_size': 2048, 'latent_dim_rec': 64, 'lightGCN_n_layers': 3, 'dropout': 0, 'keep_prob': 0.6, 'A_n_fold': 100, 'test_u_batch_size': 100, 'multicore': 0, 'lr': 0.001, 'decay': 0.0001, 'pretrain': 0, 'A_split': False, 'bigdata': False, 'adapter_class': 'multiply', 'num_steers': 2, 'rank': 10, 'epsilon': 10, 'init_var': 0.1, 'which': 'item', 'high_threshold': 25, 'low_threshold': 25, 'steer_train': 1, 'temperature': 0.07, 'dummy_steer': 1, 'steer_decay': 0.01, 'emb_ans_pos': 'after', 'n_components': 2, 'continue_train': 1}
+2024-10-22 19:32:05,858 - root - [main.py:83] - INFO - EPOCH[1/1000][0.03295688][0.02117523][0.00940284]
+2024-10-22 19:32:13,768 - root - [main.py:89] - INFO - EPOCH[1/1000] loss0.769-|Sample:4.91|
+2024-10-22 19:32:21,681 - root - [main.py:89] - INFO - EPOCH[2/1000] loss0.201-|Sample:5.00|
+2024-10-22 19:32:29,715 - root - [main.py:89] - INFO - EPOCH[3/1000] loss0.133-|Sample:5.11|
+2024-10-22 19:32:37,768 - root - [main.py:89] - INFO - EPOCH[4/1000] loss0.105-|Sample:5.14|
+2024-10-22 19:32:45,506 - root - [main.py:89] - INFO - EPOCH[5/1000] loss0.089-|Sample:4.83|
+2024-10-22 19:32:53,508 - root - [main.py:89] - INFO - EPOCH[6/1000] loss0.084-|Sample:5.04|
+2024-10-22 19:33:01,556 - root - [main.py:89] - INFO - EPOCH[7/1000] loss0.078-|Sample:5.18|
+2024-10-22 19:33:09,309 - root - [main.py:89] - INFO - EPOCH[8/1000] loss0.075-|Sample:5.03|
+2024-10-22 19:33:17,126 - root - [main.py:89] - INFO - EPOCH[9/1000] loss0.075-|Sample:5.09|
+2024-10-22 19:33:24,878 - root - [main.py:89] - INFO - EPOCH[10/1000] loss0.072-|Sample:4.82|
+2024-10-22 19:33:34,767 - root - [main.py:83] - INFO - EPOCH[11/1000][0.16080645][0.13273339][0.0480424]
+2024-10-22 19:33:42,646 - root - [main.py:89] - INFO - EPOCH[11/1000] loss0.073-|Sample:4.98|
+2024-10-22 19:33:50,603 - root - [main.py:89] - INFO - EPOCH[12/1000] loss0.072-|Sample:5.19|
+2024-10-22 19:33:58,243 - root - [main.py:89] - INFO - EPOCH[13/1000] loss0.072-|Sample:4.91|
+2024-10-22 19:34:06,002 - root - [main.py:89] - INFO - EPOCH[14/1000] loss0.072-|Sample:5.01|
+2024-10-22 19:34:13,937 - root - [main.py:89] - INFO - EPOCH[15/1000] loss0.073-|Sample:5.03|
+2024-10-22 19:34:21,830 - root - [main.py:89] - INFO - EPOCH[16/1000] loss0.072-|Sample:5.07|
+2024-10-22 19:34:29,764 - root - [main.py:89] - INFO - EPOCH[17/1000] loss0.071-|Sample:5.05|
+2024-10-22 19:34:38,632 - root - [main.py:89] - INFO - EPOCH[18/1000] loss0.072-|Sample:6.01|
+2024-10-22 19:34:46,326 - root - [main.py:89] - INFO - EPOCH[19/1000] loss0.070-|Sample:4.85|
+2024-10-22 19:34:54,282 - root - [main.py:89] - INFO - EPOCH[20/1000] loss0.071-|Sample:5.04|
+2024-10-22 19:35:04,155 - root - [main.py:83] - INFO - EPOCH[21/1000][0.16072132][0.13294028][0.04816632]
+2024-10-22 19:35:12,019 - root - [main.py:89] - INFO - EPOCH[21/1000] loss0.072-|Sample:4.94|
+2024-10-22 19:35:19,973 - root - [main.py:89] - INFO - EPOCH[22/1000] loss0.070-|Sample:5.01|
+2024-10-22 19:35:27,829 - root - [main.py:89] - INFO - EPOCH[23/1000] loss0.070-|Sample:4.98|
+2024-10-22 19:35:35,869 - root - [main.py:89] - INFO - EPOCH[24/1000] loss0.071-|Sample:5.15|
+2024-10-22 19:35:43,837 - root - [main.py:89] - INFO - EPOCH[25/1000] loss0.071-|Sample:5.06|
+2024-10-22 19:35:51,920 - root - [main.py:89] - INFO - EPOCH[26/1000] loss0.071-|Sample:5.16|
+2024-10-22 19:35:59,944 - root - [main.py:89] - INFO - EPOCH[27/1000] loss0.070-|Sample:5.10|
+2024-10-22 19:36:07,876 - root - [main.py:89] - INFO - EPOCH[28/1000] loss0.070-|Sample:5.04|
+2024-10-22 19:36:15,719 - root - [main.py:89] - INFO - EPOCH[29/1000] loss0.071-|Sample:4.93|
+2024-10-22 19:36:23,670 - root - [main.py:89] - INFO - EPOCH[30/1000] loss0.072-|Sample:5.04|
+2024-10-22 19:36:33,658 - root - [main.py:83] - INFO - EPOCH[31/1000][0.16114035][0.13346833][0.04840746]
+2024-10-22 19:36:41,509 - root - [main.py:89] - INFO - EPOCH[31/1000] loss0.072-|Sample:5.01|
+2024-10-22 19:36:49,516 - root - [main.py:89] - INFO - EPOCH[32/1000] loss0.072-|Sample:5.09|
+2024-10-22 19:36:57,629 - root - [main.py:89] - INFO - EPOCH[33/1000] loss0.072-|Sample:5.30|
+2024-10-22 19:37:05,926 - root - [main.py:89] - INFO - EPOCH[34/1000] loss0.071-|Sample:5.43|
+2024-10-22 19:37:13,779 - root - [main.py:89] - INFO - EPOCH[35/1000] loss0.071-|Sample:5.03|
+2024-10-22 19:37:21,680 - root - [main.py:89] - INFO - EPOCH[36/1000] loss0.072-|Sample:5.04|
+2024-10-22 19:37:29,752 - root - [main.py:89] - INFO - EPOCH[37/1000] loss0.071-|Sample:5.22|
+2024-10-22 19:37:37,647 - root - [main.py:89] - INFO - EPOCH[38/1000] loss0.070-|Sample:5.05|
+2024-10-22 19:37:45,539 - root - [main.py:89] - INFO - EPOCH[39/1000] loss0.072-|Sample:4.98|
+2024-10-22 19:37:53,296 - root - [main.py:89] - INFO - EPOCH[40/1000] loss0.072-|Sample:4.85|
+2024-10-22 19:38:03,194 - root - [main.py:83] - INFO - EPOCH[41/1000][0.16124235][0.13324902][0.04827517]
+2024-10-22 19:38:10,999 - root - [main.py:89] - INFO - EPOCH[41/1000] loss0.072-|Sample:4.90|
+2024-10-22 19:38:19,235 - root - [main.py:89] - INFO - EPOCH[42/1000] loss0.071-|Sample:5.30|
+2024-10-22 19:38:27,221 - root - [main.py:89] - INFO - EPOCH[43/1000] loss0.070-|Sample:5.07|
+2024-10-22 19:38:35,267 - root - [main.py:89] - INFO - EPOCH[44/1000] loss0.071-|Sample:5.21|

@@ -28,7 +28,10 @@ def BPR_train_original(dataset, recommend_model, loss_class, epoch, neg_k=1, w=N
     Recmodel = recommend_model
     Recmodel.train()
     bpr: utils.BPRLoss = loss_class
-    
+    # if world.config['continue_train']:
+    #     with timer(name="Sample"):
+    #         S = utils.UniformSample_original_python_popularity(dataset)
+   
     with timer(name="Sample"):
         S = utils.UniformSample_original(dataset)
     users = torch.Tensor(S[:, 0]).long()
@@ -56,6 +59,50 @@ def BPR_train_original(dataset, recommend_model, loss_class, epoch, neg_k=1, w=N
     time_info = timer.dict()
     timer.zero()
     return f"loss{aver_loss:.3f}-{time_info}"
+
+
+
+def BPR_train_continue(dataset, recommend_model, loss_class, epoch, neg_k=1, w=None):
+    Recmodel = recommend_model
+    Recmodel.train()
+    bpr: utils.BPR2Loss = loss_class
+    # if world.config['continue_train']:
+    #     with timer(name="Sample"):
+    #         S = utils.UniformSample_original_python_popularity(dataset)
+   
+    with timer(name="Sample"):
+        S = utils.UniformSample_original_python_popularity(dataset)
+    users = torch.Tensor(S[:, 0]).long()
+    highItems = torch.Tensor(S[:, 1]).long()
+    lowItems = torch.Tensor(S[:, 2]).long()
+    negItems = torch.Tensor(S[:, 3]).long()
+
+    users = users.to(world.device)
+    highItems = highItems.to(world.device)
+    lowItems = lowItems.to(world.device)
+    negItems = negItems.to(world.device)
+
+    users, highItems, lowItems, negItems = utils.shuffle(users, highItems, lowItems, negItems)
+    total_batch = len(users) // world.config['bpr_batch_size'] + 1
+    aver_loss = 0.
+    for (batch_i,
+         (batch_users,
+          batch_high,
+          batch_low,
+          batch_neg)) in enumerate(utils.minibatch(users,
+                                                   highItems,
+                                                   lowItems,
+                                                   negItems,
+                                                   batch_size=world.config['bpr_batch_size'])):
+        cri = bpr.stageOne(batch_users, batch_high, batch_low, batch_neg)
+        aver_loss += cri
+        if world.tensorboard:
+            w.add_scalar(f'BPRLoss/BPR', cri, epoch * int(len(users) / world.config['bpr_batch_size']) + batch_i)
+    aver_loss = aver_loss / total_batch
+    time_info = timer.dict()
+    timer.zero()
+    return f"loss{aver_loss:.3f}-{time_info}"
+    
     
     
 def test_one_batch(X):
@@ -106,10 +153,8 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
             groundTrue = [testDict[u] for u in batch_users]
             batch_users_gpu = torch.Tensor(batch_users).long()
             batch_users_gpu = batch_users_gpu.to(world.device)
-            if world.config['steer_train']:
-                rating = Recmodel.rec_model.getUsersRating(batch_users_gpu)
-            else:
-                rating = Recmodel.getUsersRating(batch_users_gpu)
+            
+            rating = Recmodel.getUsersRating(batch_users_gpu)
             #rating = rating.cpu()
             exclude_index = []
             exclude_items = []
@@ -184,7 +229,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
         #                   {str(world.topks[i]): results['precision'][i] for i in range(len(world.topks))}, epoch)
         #     w.add_scalars(f'Test/NDCG@{world.topks}',
         #                   {str(world.topks[i]): results['ndcg'][i] for i in range(len(world.topks))}, epoch)
-        #     w.add_scalars(f'Test/Popularity', {'rating_popularity_mean': results['rating_popularity_mean']}, epoch)
+            # w.add_scalars(f'Test/Popularity', {'rating_popularity_mean': results['rating_popularity_mean']}, epoch)
         if multicore == 1:
             pool.close()
         # print(results)

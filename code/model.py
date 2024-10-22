@@ -12,6 +12,7 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
+from itertools import chain
 
 class BasicModel(nn.Module):    
     def __init__(self):
@@ -357,6 +358,7 @@ class Steer_model(BasicModel):
         self.steer = SteerNet(config,self.num_users,self.num_items).to(world.device)
         self.steer_values = steer_values
         self.steer.set_value(steer_values)
+        self.f = nn.Sigmoid()
 
     def forward(self, users, items):
         all_users, all_items,_,_,_,_,_,_ = self.computer()
@@ -368,14 +370,35 @@ class Steer_model(BasicModel):
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
 
-    # def parameters(self):
-    #     return self.steer.parameters()
+    def parameters(self):
+        if self.config['continue_train']:
+            return self.steer.parameters()
+        else:
+            return chain(self.rec_model.parameters(), self.steer.parameters())
     
-    # def state_dict(self):
-    #     return self.steer.state_dict()
+    def state_dict(self):
+        if self.config['continue_train']:
+            return self.steer.state_dict()
+        else:
+            state_dict_combined = self.rec_model.state_dict()
+            state_dict_combined.update(self.steer.state_dict())
+            return state_dict_combined
+            
     
     def load_state_dict(self, state_dict):
-        self.steer.load_state_dict(state_dict)
+        if self.config['continue_train']:
+            self.steer.load_state_dict(state_dict)
+        else:
+            rec_model_keys = ['embedding_user.weight', 'embedding_item.weight']
+            steer_keys = ['projector1', 'projector2']
+
+            # Filter state_dict for rec_model
+            rec_model_state_dict = {k: v for k, v in state_dict.items() if k in rec_model_keys}
+            self.rec_model.load_state_dict(rec_model_state_dict)
+
+            # Filter state_dict for steer
+            steer_state_dict = {k: v for k, v in state_dict.items() if k in steer_keys}
+            self.steer.load_state_dict(steer_state_dict)
 
     def get_parameter_by_name(self, name):
     # 获取模型的状态字典
@@ -390,32 +413,61 @@ class Steer_model(BasicModel):
             raise ValueError(f"Parameter '{name}' not found in the rec_model.")
         
     
-    def getEmbedding(self, users, pos_items, neg_items):
+    def getEmbedding(self, users, high_items, low_items, neg_items):
         all_users, all_items,_,_,_,_,_,_ = self.rec_model.computer()
         #加入steer
+        # users_emb_ego = self.rec_model.embedding_user.weight
+        # pos_emb_ego = self.rec_model.embedding_user.weight[pos_items]
+        # neg_emb_ego = self.rec_model.embedding_user.weight[neg_items]
         if self.config['steer_train']:
             all_items = self.steer(all_items)
         users_emb = all_users[users]
-        pos_emb = all_items[pos_items]
+        high_emb = all_items[high_items]
+        low_emb = all_items[low_items]
         neg_emb = all_items[neg_items]
-        users_emb_ego = self.init_user_embedding[users]
-        pos_emb_ego = self.init_item_embedding[pos_items]
-        neg_emb_ego = self.init_item_embedding[neg_items]
-        return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
+        # users_emb_ego = self.rec_model.embedding_user.weight[users]
+        # pos_emb_ego = self.rec_model.embedding_item.weight[pos_items]
+        # neg_emb_ego = self.rec_model.embedding_item.weight[neg_items]
+        return users_emb, high_emb, low_emb, neg_emb
     
-    def bpr_loss(self, users, pos, neg):
-        (users_emb, pos_emb, neg_emb, 
-        userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-                         posEmb0.norm(2).pow(2)  +
-                         negEmb0.norm(2).pow(2))/float(len(users))
-        pos_scores = torch.mul(users_emb, pos_emb)
-        pos_scores = torch.sum(pos_scores, dim=1)
-        neg_scores = torch.mul(users_emb, neg_emb)
-        neg_scores = torch.sum(neg_scores, dim=1)
-        
-        loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
+    def bpr_loss(self, users, high,low, neg):
+        (users_emb, high_emb, low_emb, neg_emb) = self.getEmbedding(users.long(), high.long(),low.long(), neg.long())
+        # reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
+        #                  posEmb0.norm(2).pow(2)  +
+        #                  negEmb0.norm(2).pow(2))/float(len(users))
+        high_scores = torch.mul(users_emb, high_emb)
+        high_scores = torch.sum(high_scores, dim=1)
+        low_scores = torch.mul(users_emb, low_emb)
+        low_scores = torch.sum(low_scores, dim=1)
+
+        pos_high_scores = torch.mul(users_emb, high_emb)
+        pos_high_scores = torch.sum(pos_high_scores, dim=1)
+        neg_high_scores = torch.mul(users_emb, neg_emb)
+        neg_high_scores = torch.sum(neg_high_scores, dim=1)
+
+        pos_low_scores = torch.mul(users_emb, low_emb)
+        pos_low_scores = torch.sum(pos_low_scores, dim=1)
+        neg_low_scores = torch.mul(users_emb, neg_emb)
+        neg_low_scores = torch.sum(neg_low_scores, dim=1)
+
+        loss1 = torch.mean(torch.nn.functional.softplus(low_scores - high_scores))
+        loss2 = torch.mean(torch.nn.functional.softplus(neg_high_scores - pos_high_scores))
+        loss3 = torch.mean(torch.nn.functional.softplus(neg_low_scores - pos_low_scores))
+
+        loss = loss1 + loss2 + loss3
         reg_loss_steer = self.steer.regularization_term()
+        print(f"loss: {loss.item()},loss1: {loss1.item()},loss2: {loss2.item()},loss3: {loss3.item()}, reg_loss_steer: {reg_loss_steer.item()}")
 
-        return loss, reg_loss, reg_loss_steer
+        return loss, reg_loss_steer
 
+    def getUsersRating(self, users):
+        all_users, all_items,_,_,_,_,_,_ = self.rec_model.computer()
+        users_emb = all_users[users.long()]
+        items_emb_ego = all_items
+        
+        items_emb = self.steer(all_items)
+        
+        rating_before = self.f(torch.matmul(users_emb, items_emb_ego.t()))
+        
+        rating = self.f(torch.matmul(users_emb, items_emb.t()))
+        return rating

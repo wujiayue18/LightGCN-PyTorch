@@ -44,7 +44,6 @@ class BPRLoss:
         self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg):
-        #看一下reg_loss,users,pos
         loss, reg_loss = self.model.bpr_loss(users, pos, neg)
         reg_loss = reg_loss*self.weight_decay
         loss = loss + reg_loss
@@ -66,12 +65,13 @@ class BPR2Loss:
         self.lr = config['lr']
         self.opt = optim.Adam(Steer_rec_model.parameters(), lr=self.lr)
 
-    def stageOne(self, users, pos, neg):
+    def stageOne(self, users, high,low, neg):
         #看一下reg_loss,users,pos
-        loss, reg_loss,reg_loss_steer = self.model.bpr_loss(users, pos, neg)
-        reg_loss = reg_loss*self.weight_decay
+        loss, reg_loss_steer = self.model.bpr_loss(users, high, low, neg)
+        # reg_loss = reg_loss*self.weight_decay
         reg_loss_steer = reg_loss_steer*self.steer_decay
-        loss = loss + reg_loss + reg_loss_steer
+        # loss = loss + reg_loss + reg_loss_steer
+        loss = loss + reg_loss_steer
         
         self.opt.zero_grad()
         loss.backward()
@@ -143,6 +143,49 @@ def UniformSample_original_python(dataset):
     total = time() - total_start
     return np.array(S)
 
+
+def UniformSample_original_python_popularity(dataset):
+    """
+    the original impliment of BPR Sampling in LightGCN
+    :return:
+        np.array
+    """
+    total_start = time()
+    dataset : BasicDataset
+    
+    allPos = dataset.allPos
+    highItems = dataset.highItems
+    lowItems = dataset.lowItems
+
+    user_num = sum(len(sublist) for sublist in highItems)
+    # print(user_num)
+    users = np.random.randint(0, dataset.n_users, user_num)
+    
+    S = []
+    
+    for i, user in enumerate(users):
+        posForUser = allPos[user]
+        highForUser = highItems[user]
+        lowForUser = lowItems[user]
+        if len(highForUser) == 0 or len(lowForUser) == 0:
+            continue
+        
+        highindex = np.random.randint(0, len(highForUser))
+        highitem = highForUser[highindex]
+        lowindex = np.random.randint(0, len(lowForUser))
+        lowitem = lowForUser[lowindex]      
+        while True:
+            negitem = np.random.randint(0, dataset.m_items)
+            if negitem in posForUser:
+                continue
+            else:
+                break      
+        S.append([user, highitem, lowitem, negitem])
+        
+        
+    total = time() - total_start
+    return np.array(S)
+
 # ===================end samplers==========================
 # =====================utils====================================
 
@@ -155,15 +198,21 @@ def set_seed(seed):
 
 def getFileName():
     if world.model_name == 'mf':
-        if world.config['steer_train'] == 1 and world.config['continue_train'] == 0:
-            file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        if world.config['steer_train'] == 1:
+            if world.config['continue_train'] == 0:
+                file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+            else:
+                file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
         else:
-            file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+            file = f"mf-{world.dataset}-{world.config['latent_dim_rec']}-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     elif world.model_name == 'lgn':
-        if world.config['steer_train'] == 1 and world.config['continue_train'] == 0:
-            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+        if world.config['steer_train'] == 1:
+            if world.config['continue_train'] == 0:
+                file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-steer_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+            else:
+                file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
         else:
-            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-continue_train-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
+            file = f"lgn-{world.dataset}-{world.config['lightGCN_n_layers']}-{world.config['latent_dim_rec']}-lgn-{datetime.now().strftime('%Y%m%d%H%M%S')}.pth.tar"
     return os.path.join(world.FILE_PATH,file)
 
 def minibatch(*tensors, **kwargs):
@@ -304,6 +353,8 @@ def plot_count_popularity(popularity, counts, text):
     # 显示图形
     plt.show()
     plt.savefig(f"../imgs/{world.dataset}/plot_{text}_items_popularity.png")
+
+
 class timer:
     """
     Time context manager for code block

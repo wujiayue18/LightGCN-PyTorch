@@ -295,7 +295,7 @@ class Loader(BasicDataset):
         self.highpo_samples, self.lowpo_samples = self._popularity_samples()
         self.user_popularity = self._user_cal_popularity()
         self.item_popularity_labels = self.item_popularity_label() #每一个item对应一个popularity的label
-
+        self.highItems, self.lowItems = self.getUserhigh_low_Items(list(range(self.n_user)))
         print(f"{world.dataset} is ready to go")
 
     @property
@@ -408,6 +408,19 @@ class Loader(BasicDataset):
         for user in users:
             posItems.append(self.UserItemNet[user].nonzero()[1])
         return posItems
+    
+    def getUserhigh_low_Items(self, users):
+        highItems = []
+        lowItems = []
+        for user in users:
+            items = self._allPos[user]
+            high_items_for_user = np.intersect1d(items, self.highpo_samples) 
+            low_items_for_user = np.intersect1d(items, self.lowpo_samples) 
+            highItems.append(high_items_for_user)
+            lowItems.append(low_items_for_user)
+
+        return highItems, lowItems
+
 
     def _item_cal_popularity(self):
         item_popularity = np.array(np.sum(self.UserItemNet, axis=0))
